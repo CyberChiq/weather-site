@@ -3,14 +3,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Live US Weather Radar & Alerts</title>
+  <title>Desert Viber — Live US Radar & NWS Alerts</title>
+
+  <!-- Fonts / Leaflet -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+
+  <!-- YouTube Subscribe widget -->
+  <script async defer src="https://apis.google.com/js/platform.js"></script>
+
+  <!-- Social share / SEO -->
+  <meta name="description" content="Live US radar & NWS alerts + real-time severe weather coverage on YouTube. Subscribe to Desert Viber!" />
+  <meta property="og:title" content="Desert Viber — Live US Weather Radar & Alerts" />
+  <meta property="og:description" content="Interactive radar, live alerts, and a 24/7 weather stream. Subscribe to support the channel!" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- (Optional) Plausible analytics — set your domain when ready -->
+  <!-- <script defer data-domain="your-vercel-domain.vercel.app" src="https://plausible.io/js/script.js"></script> -->
+
   <style>
     :root { --bg:#0b0d12; --fg:#f2f5f9; --muted:#9aa4b2; --accent:#49a6ff; --danger:#ff4d4f; }
     body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background:var(--bg); color:var(--fg); }
     header { padding:16px 20px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; border-bottom:1px solid #1a222f; }
-    .brand { font-weight:700; letter-spacing:.3px; }
+    .brand { font-weight:700; letter-spacing:.3px; display:flex; align-items:center; gap:10px; }
     .cta { display:flex; gap:8px; flex-wrap:wrap; }
     .btn { background:#141a24; color:var(--fg); border:1px solid #1f2a3a; padding:8px 12px; border-radius:8px; text-decoration:none; cursor:pointer; }
     .btn.accent { border-color: var(--accent); }
@@ -31,17 +47,66 @@
     input, select { background:#0b1118; color:var(--fg); border:1px solid #1f2a3a; border-radius:8px; padding:8px 10px; }
     .legend { position:absolute; bottom:12px; right:12px; background:#0b1118cc; color:#e8eef7; padding:8px 10px; border-radius:8px; border:1px solid #1f2a3a; font-size:.85rem; }
     .attribution { padding:10px 14px; font-size:.8rem; color:var(--muted); border-top:1px solid #182233; }
+
+    /* Sticky subscribe bar */
+    .subbar{position:sticky;top:0;z-index:999;background:#0b1118;border-bottom:1px solid #1f2a3a;padding:8px 12px;display:flex;gap:12px;align-items:center;justify-content:center}
+    .subbar .note{color:#c6d0de;font-size:.9rem}
+
+    /* Subscribe Gate (soft) */
+    .gate-overlay{position:fixed;inset:0;background:rgba(5,8,12,.86);display:flex;align-items:center;justify-content:center;z-index:9999}
+    .gate-modal{width:min(680px,92vw);background:#0f141d;border:1px solid #1f2a3a;border-radius:14px;box-shadow:0 10px 38px rgba(0,0,0,.45);padding:22px}
+    .gate-modal h3{margin:0 0 8px;font-size:1.25rem;color:#e8eef7}
+    .gate-modal p{margin:0 0 14px;color:#c6d0de}
+    .gate-actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+    .gate-btn{background:#141a24;color:#f2f5f9;border:1px solid #1f2a3a;padding:10px 14px;border-radius:10px;cursor:pointer;text-decoration:none}
+    .gate-btn.primary{border-color:var(--accent)}
+    body.gated{overflow:hidden}
+    main.gated,header.gated{pointer-events:none;user-select:none;filter:blur(1px)}
+
+    /* Utility */
+    .list-clean {list-style:none; padding-left:0; margin:0; display:grid; gap:8px}
+    .pill {display:inline-block; padding:4px 10px; border:1px solid #24334a; border-radius:999px; font-size:.85rem; color:#c6d0de}
   </style>
 </head>
 <body>
+
+  <!-- Subscribe Gate (shows on first visit or every 24h) -->
+  <div id="subGate" class="gate-overlay" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateDesc" hidden>
+    <div class="gate-modal">
+      <h3 id="gateTitle">Support the Stream — Subscribe to Desert Viber</h3>
+      <p id="gateDesc">This project runs on your support. Tap subscribe below, then continue to the live radar & alerts.</p>
+
+      <div class="g-ytsubscribe" data-channel="@DesertViber" data-layout="full" data-theme="dark" data-count="default"></div>
+
+      <div class="gate-actions">
+        <a class="gate-btn" href="https://www.youtube.com/@DesertViber" target="_blank" rel="noopener">Open channel</a>
+        <button class="gate-btn primary" id="continueBtn">I Subscribed — Continue</button>
+      </div>
+      <p class="muted" style="margin-top:8px;">(We can’t verify a subscription without Google sign-in, but subscribing here or on YouTube helps a lot. Thank you!)</p>
+      <ul class="list-clean" style="margin-top:10px;">
+        <li><span class="pill">No spam. Just weather.</span> <span class="pill">Family-friendly stream</span> <span class="pill">Real-time alerts</span></li>
+      </ul>
+    </div>
+  </div>
+
   <header>
-    <div class="brand">US Live Radar & Weather Alerts</div>
+    <div class="brand">
+      <img src="logo.png" alt="Desert Viber logo" style="width:34px;height:34px;border-radius:8px;border:1px solid #1f2a3a;object-fit:cover;">
+      <span>Desert Viber — Live Radar & Alerts</span>
+    </div>
     <div class="cta">
-      <a class="btn accent" href="https://www.youtube.com/live/rivJ9lgNZU8?si=1LWv9y4rLt22JLOW" target="_blank" rel="noopener" target="_blank" rel="noopener">Subscribe on YouTube</a>
+      <a class="btn accent" href="https://www.youtube.com/@DesertViber" target="_blank" rel="noopener">Watch on YouTube</a>
       <a class="btn" href="#alerts">View Alerts</a>
       <a class="btn danger" href="#support">Support the Stream</a>
     </div>
   </header>
+
+  <!-- Sticky subscribe bar -->
+  <div class="subbar">
+    <span class="note">Enjoying the radar & alerts? Subscribe to support the channel:</span>
+    <div class="g-ytsubscribe" data-channel="@DesertViber" data-layout="default" data-theme="dark" data-count="default"></div>
+    <a class="btn accent" href="https://www.youtube.com/@DesertViber" target="_blank" rel="noopener">Open Channel</a>
+  </div>
 
   <main class="grid">
     <section class="card">
@@ -54,7 +119,7 @@
           allowfullscreen></iframe>
       </div>
       <div class="attribution">
-        Tip: click the “View Alerts” button to see active NWS alerts and pan the map to your area.
+        Tip: click “View Alerts” to see active NWS alerts and pan the map to your area.
       </div>
     </section>
 
@@ -78,10 +143,35 @@
 
     <section class="card" style="grid-column: 1 / -1;">
       <h2>Interactive Radar</h2>
+
+      <!-- Region jump buttons -->
+      <div class="panel" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="muted">Quick view:</span>
+        <button class="btn" data-view="west">West</button>
+        <button class="btn" data-view="central">Central</button>
+        <button class="btn" data-view="east">East</button>
+        <button class="btn" data-view="alaska">Alaska</button>
+        <button class="btn" data-view="hawaii">Hawaii</button>
+      </div>
+
       <div id="map"></div>
       <div class="legend">Radar intensity ↑ • Use pinch/scroll to zoom • Click features for details</div>
       <div class="attribution">
         Data/tiles subject to provider availability. Always follow local officials & NWS guidance.
+      </div>
+    </section>
+
+    <!-- About section -->
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2>About Desert Viber</h2>
+      <div class="panel">
+        <p><strong>Real-time severe weather coverage</strong> with interactive radar, watches & warnings,
+        and clear, calm explanations — with a dash of storm-chaser energy and a cozy community vibe.</p>
+        <ul class="list-clean">
+          <li>✔️ US-wide composite radar with smooth animation</li>
+          <li>✔️ Live National Weather Service alerts by your location</li>
+          <li>✔️ Educational breakdowns: how to read radar and track storms</li>
+        </ul>
       </div>
     </section>
 
@@ -107,6 +197,16 @@
         </form>
       </div>
     </section>
+
+    <!-- Optional: Live Chat (only works when live & domain matches) -->
+    <!--
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2>Live Chat</h2>
+      <iframe
+        src="https://www.youtube.com/live_chat?v=rivJ9lgNZU8&embed_domain=YOURDOMAIN.com"
+        width="100%" height="460" style="border:0;"></iframe>
+    </section>
+    -->
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -201,6 +301,53 @@
         loadAlerts({ point: { lat, lon } });
       });
     });
+
+    // --- Region quick views ---
+    const regionViews = {
+      west:   { lat: 37.8, lon: -120.0, zoom: 5 },
+      central:{ lat: 38.5, lon:  -96.8, zoom: 5 },
+      east:   { lat: 38.8, lon:  -78.5, zoom: 5 },
+      alaska: { lat: 64.8, lon: -150.0, zoom: 4 },
+      hawaii: { lat: 20.7, lon: -157.5, zoom: 7 }
+    };
+    document.querySelectorAll('button[data-view]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const v = regionViews[btn.dataset.view];
+        if (!v) return;
+        map.setView([v.lat, v.lon], v.zoom);
+      });
+    });
+
+    // --- Subscribe Gate logic ---
+    (function() {
+      const GATE_KEY = 'subGateDismissedAt';
+      const SHOW_FOR_HOURS = 24; // set 0 to show every visit
+      const gate = document.getElementById('subGate');
+      const continueBtn = document.getElementById('continueBtn');
+
+      function lockUI(){ document.body.classList.add('gated'); ['header','main'].forEach(sel=>{const el=document.querySelector(sel); if(el) el.classList.add('gated');}); }
+      function unlockUI(){ document.body.classList.remove('gated'); ['header','main'].forEach(sel=>{const el=document.querySelector(sel); if(el) el.classList.remove('gated');}); }
+      function shouldShow(){ try{ const ts=+localStorage.getItem(GATE_KEY)||0; return ((Date.now()-ts)/36e5)>=SHOW_FOR_HOURS; }catch{ return true; } }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        if (gate && shouldShow()) { gate.hidden = false; lockUI(); }
+      });
+
+      continueBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        try { localStorage.setItem(GATE_KEY, String(Date.now())); } catch {}
+        gate.hidden = true; unlockUI();
+      });
+
+      // Optional: Exit-intent nudge (desktop)
+      let exitShown=false;
+      window.addEventListener('mouseout', (e) => {
+        if (exitShown || !gate) return;
+        if (e.clientY <= 0 || e.clientY < 8) {
+          if (gate.hidden && shouldShow()) { gate.hidden=false; lockUI(); exitShown=true; }
+        }
+      });
+    })();
   </script>
 </body>
 </html>
