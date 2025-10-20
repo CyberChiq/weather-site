@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
-  <script async defer src="https://apis.google.com/js/platform.js"></script>
+  <script src="https://apis.google.com/js/platform.js" async defer></script>
 
   <meta name="description" content="Live US radar & NWS alerts + real-time severe weather coverage on YouTube. Subscribe to Purple Jellyfish Productions!" />
   <meta property="og:title" content="Purple Jellyfish Productions — Live US Weather Radar & Alerts" />
@@ -37,7 +37,7 @@
     .grid { display:grid; grid-template-columns: 1fr; gap:16px; padding:16px; }
     @media(min-width: 980px){ .grid { grid-template-columns: 2fr 1fr; } }
     .card { background:#0f141d; border:1px solid #182233; border-radius:12px; overflow:hidden; }
-    .card h2 { margin:0; padding:12px 14px; font-size:1rem; border-bottom:1px solid #182233; color:#e8eef7; }
+    .card h2 { margin:0; padding:12px 14px; font-size:1rem; border-bottom:1px solid #182233; color:#e8eef7; display:flex; align-items:center; gap:8px; }
     .video-wrap { position:relative; padding-top:56.25%; }
     .video-wrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
     #map { width:100%; height:560px; }
@@ -117,10 +117,25 @@
     .gate-btn.primary{border-color:var(--accent)}
     body.gated{overflow:hidden}
     main.gated,header.gated{pointer-events:none;user-select:none;filter:blur(1px)}
-
-    /* small utils */
     .list-clean{list-style:none;padding-left:0;margin:0;display:grid;gap:8px}
     .pill{display:inline-block;padding:4px 10px;border:1px solid #24334a;border-radius:999px;font-size:.85rem;color:#c6d0de}
+
+    /* ===== LIVE NOW badge ===== */
+    .live-badge{
+      display:inline-flex; align-items:center; gap:.45rem;
+      background:#141a24; border:1px solid #2a3448; color:#ff7070;
+      padding:.22rem .55rem; border-radius:999px; font-weight:700; font-size:.78rem; letter-spacing:.3px;
+    }
+    .live-dot{
+      width:.52rem; height:.52rem; border-radius:999px; background:#ff3b3b;
+      box-shadow:0 0 0 0 rgba(255,59,59,.7); animation:pulse 1.4s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow:0 0 0 0 rgba(255,59,59,.7); transform:scale(1); }
+      70%{ box-shadow:0 0 0 10px rgba(255,59,59,0); transform:scale(1.05); }
+      100% { box-shadow:0 0 0 0 rgba(255,59,59,0); transform:scale(1); }
+    }
+    .live-toggle{ font-size:.8rem; color:#9aa4b2; text-decoration:underline; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -133,12 +148,12 @@
     <div class="gate-modal">
       <h3 id="gateTitle">Support the Stream — Subscribe to Purple Jellyfish Productions</h3>
       <p id="gateDesc">This project runs on your support. Tap subscribe below, then continue to the live radar & alerts.</p>
-      <div class="g-ytsubscribe" data-channel="@purplejellyfishproductions" data-layout="full" data-theme="dark" data-count="default"></div>
+      <div class="g-ytsubscribe" data-channelid="UCthm4CvoVE0kvHYszkORckg" data-layout="full" data-theme="dark" data-count="default"></div>
       <div class="gate-actions">
         <a class="gate-btn" href="https://www.youtube.com/@purplejellyfishproductions" target="_blank" rel="noopener">Open channel</a>
         <button class="gate-btn primary" id="continueBtn" type="button">I Subscribed — Continue</button>
       </div>
-      <p class="muted" style="margin-top:8px;">(We can’t verify a subscription without Google sign-in, but subscribing here or on YouTube helps a lot. Thank you!)</p>
+      <p class="muted" style="margin-top:8px;">(We can’t verify a subscription automatically, but every sub helps. Thank you!)</p>
     </div>
   </div>
 
@@ -156,21 +171,30 @@
 
   <div class="subbar">
     <span class="note">Enjoying the radar & alerts? Subscribe to support the channel:</span>
-    <div class="g-ytsubscribe" data-channel="@purplejellyfishproductions" data-layout="default" data-theme="dark" data-count="default"></div>
+    <div class="g-ytsubscribe" data-channelid="UCthm4CvoVE0kvHYszkORckg" data-layout="default" data-theme="dark" data-count="default"></div>
     <a class="btn accent" href="https://www.youtube.com/@purplejellyfishproductions" target="_blank" rel="noopener">Open Channel</a>
   </div>
 
   <main class="grid">
     <section class="card">
-      <h2>Live Stream</h2>
+      <h2>
+        Live Stream
+        <span id="liveBadge" class="live-badge" hidden>
+          <span class="live-dot" aria-hidden="true"></span> LIVE NOW
+        </span>
+      </h2>
       <div class="video-wrap">
         <iframe
-          src="https://www.youtube.com/embed/rivJ9lgNZU8?autoplay=0&modestbranding=1&rel=0"
+          src="https://www.youtube.com/embed/1xCAGP_FvNU?autoplay=0&modestbranding=1&rel=0"
           title="YouTube live"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen></iframe>
       </div>
-      <div class="attribution">Tip: click “View Alerts” to see active NWS alerts and pan the map to your area.</div>
+      <div class="attribution">
+        Tip: click “View Alerts” to see active NWS alerts and pan the map to your area.
+        &nbsp;|&nbsp; <span id="liveToggle" class="live-toggle" hidden>Not live? Hide badge</span>
+        <span id="liveShow" class="live-toggle" hidden>Show LIVE badge</span>
+      </div>
     </section>
 
     <aside class="card" id="alerts">
@@ -231,9 +255,9 @@
 
     async function loadAlerts(p={}) {
       alertsList.innerHTML='<div class="muted">Loading alerts…</div>';
-      let u='https://api.weather.gov/alerts/active?';
-      if(p.point) u+=`point=${p.point.lat},${p.point.lon}`;
-      const r=await fetch(u+'&limit=200',{headers:{'Accept':'application/geo+json'}});
+      let u='https://api.weather.gov/alerts/active?status=actual&message_type=alert&limit=200';
+      if(p.point) u+=`&point=${p.point.lat},${p.point.lon}`;
+      const r=await fetch(u,{headers:{'Accept':'application/geo+json'}});
       const g=await r.json();
       alertLayer.clearLayers(); alertLayer.addData(g);
       alertsList.innerHTML = g.features?.length
@@ -266,14 +290,46 @@
     // Subscribe Gate (class-based)
     (function(){
       const KEY='subGateDismissedAt', HOURS=24, gate=document.getElementById('subGate'), btn=document.getElementById('continueBtn');
-      const lock=()=>{document.body.classList.add('gated'); ['header','main'].forEach(s=>document.querySelector(s)?.classList.add('gated'));};
-      const unlock=()=>{document.body.classList.remove('gated'); ['header','main'].forEach(s=>document.querySelector(s)?.classList.remove('gated'));};
+      const show=()=>{gate.classList.add('is-open');};
+      const hide=()=>{gate.classList.remove('is-open'); try{localStorage.setItem(KEY, String(Date.now()));}catch{}};
       const should=()=>{try{const ts=+localStorage.getItem(KEY)||0; return ((Date.now()-ts)/36e5)>=HOURS;}catch{return true}};
-      const show=()=>{gate.classList.add('is-open'); lock();};
-      const hide=()=>{gate.classList.remove('is-open'); unlock(); try{localStorage.setItem(KEY, String(Date.now()));}catch{}};
-
       window.addEventListener('DOMContentLoaded', ()=>{ if(should()) show(); });
       btn.addEventListener('click', hide);
+    })();
+
+    // LIVE NOW badge logic (URL param or localStorage can hide it)
+    (function(){
+      const BADGE_KEY='liveBadgeOffUntil';
+      const badge=document.getElementById('liveBadge');
+      const hideLink=document.getElementById('liveToggle');
+      const showLink=document.getElementById('liveShow');
+
+      function showBadge(){ badge.hidden=false; hideLink.hidden=false; showLink.hidden=true; }
+      function hideBadge(hours=6){
+        badge.hidden=true; hideLink.hidden=true; showLink.hidden=false;
+        try{ localStorage.setItem(BADGE_KEY, String(Date.now() + hours*3600*1000)); }catch{}
+      }
+      function offActive(){
+        try{
+          const until=+localStorage.getItem(BADGE_KEY)||0;
+          return Date.now() < until;
+        }catch{ return false; }
+      }
+
+      // URL override: ?live=0 hides; ?live=1 forces show
+      const q=new URLSearchParams(location.search);
+      const liveParam=q.get('live');
+      const forceOn=liveParam==='1';
+      const forceOff=liveParam==='0';
+
+      window.addEventListener('DOMContentLoaded', ()=>{
+        if (forceOn) { showBadge(); return; }
+        if (forceOff || offActive()) { hideBadge(0); return; }
+        showBadge();
+      });
+
+      hideLink.addEventListener('click', ()=> hideBadge(6) );
+      showLink.addEventListener('click', ()=> { try{localStorage.removeItem(BADGE_KEY);}catch{}; showBadge(); });
     })();
   </script>
 </body>
