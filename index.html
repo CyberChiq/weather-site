@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Desert Viber — Live US Radar & NWS Alerts</title>
 
-  <!-- Fonts / Leaflet -->
+  <!-- Leaflet CSS -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
 
@@ -18,9 +18,6 @@
   <meta property="og:description" content="Interactive radar, live alerts, and a 24/7 weather stream. Subscribe to support the channel!" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
-
-  <!-- (Optional) Plausible analytics — set your domain when ready -->
-  <!-- <script defer data-domain="your-vercel-domain.vercel.app" src="https://plausible.io/js/script.js"></script> -->
 
   <style>
     :root { --bg:#0b0d12; --fg:#f2f5f9; --muted:#9aa4b2; --accent:#49a6ff; --danger:#ff4d4f; }
@@ -52,8 +49,9 @@
     .subbar{position:sticky;top:0;z-index:999;background:#0b1118;border-bottom:1px solid #1f2a3a;padding:8px 12px;display:flex;gap:12px;align-items:center;justify-content:center}
     .subbar .note{color:#c6d0de;font-size:.9rem}
 
-    /* Subscribe Gate (soft) */
-    .gate-overlay{position:fixed;inset:0;background:rgba(5,8,12,.86);display:flex;align-items:center;justify-content:center;z-index:9999}
+    /* Subscribe Gate (visibility controlled by class) */
+    .gate-overlay{display:none; position:fixed; inset:0; background:rgba(5,8,12,.86); align-items:center; justify-content:center; z-index:9999}
+    .gate-overlay.is-open{display:flex}
     .gate-modal{width:min(680px,92vw);background:#0f141d;border:1px solid #1f2a3a;border-radius:14px;box-shadow:0 10px 38px rgba(0,0,0,.45);padding:22px}
     .gate-modal h3{margin:0 0 8px;font-size:1.25rem;color:#e8eef7}
     .gate-modal p{margin:0 0 14px;color:#c6d0de}
@@ -63,15 +61,15 @@
     body.gated{overflow:hidden}
     main.gated,header.gated{pointer-events:none;user-select:none;filter:blur(1px)}
 
-    /* Utility */
+    /* Utils */
     .list-clean {list-style:none; padding-left:0; margin:0; display:grid; gap:8px}
     .pill {display:inline-block; padding:4px 10px; border:1px solid #24334a; border-radius:999px; font-size:.85rem; color:#c6d0de}
   </style>
 </head>
 <body>
 
-  <!-- Subscribe Gate (shows on first visit or every 24h) -->
-  <div id="subGate" class="gate-overlay" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateDesc" hidden>
+  <!-- Subscribe Gate -->
+  <div id="subGate" class="gate-overlay" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateDesc">
     <div class="gate-modal">
       <h3 id="gateTitle">Support the Stream — Subscribe to Desert Viber</h3>
       <p id="gateDesc">This project runs on your support. Tap subscribe below, then continue to the live radar & alerts.</p>
@@ -80,7 +78,7 @@
 
       <div class="gate-actions">
         <a class="gate-btn" href="https://www.youtube.com/@DesertViber" target="_blank" rel="noopener">Open channel</a>
-        <button class="gate-btn primary" id="continueBtn">I Subscribed — Continue</button>
+        <button class="gate-btn primary" id="continueBtn" type="button">I Subscribed — Continue</button>
       </div>
       <p class="muted" style="margin-top:8px;">(We can’t verify a subscription without Google sign-in, but subscribing here or on YouTube helps a lot. Thank you!)</p>
       <ul class="list-clean" style="margin-top:10px;">
@@ -161,7 +159,7 @@
       </div>
     </section>
 
-    <!-- About section -->
+    <!-- About -->
     <section class="card" style="grid-column: 1 / -1;">
       <h2>About Desert Viber</h2>
       <div class="panel">
@@ -197,18 +195,9 @@
         </form>
       </div>
     </section>
-
-    <!-- Optional: Live Chat (only works when live & domain matches) -->
-    <!--
-    <section class="card" style="grid-column: 1 / -1;">
-      <h2>Live Chat</h2>
-      <iframe
-        src="https://www.youtube.com/live_chat?v=rivJ9lgNZU8&embed_domain=YOURDOMAIN.com"
-        width="100%" height="460" style="border:0;"></iframe>
-    </section>
-    -->
   </main>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // --- Map ---
@@ -227,11 +216,11 @@
     let alertLayer = L.geoJSON(null, {
       style: f => ({ color:'#ff4d4f', weight:2, fill:false }),
       onEachFeature: (f, layer) => {
-        const props = f.properties || {};
-        const t = props.event || 'Alert';
-        const a = props.areaDesc || '';
-        const s = props.severity || '';
-        const e = props.effective ? new Date(props.effective).toLocaleString() : '';
+        const p = f.properties || {};
+        const t = p.event || 'Alert';
+        const a = p.areaDesc || '';
+        const s = p.severity || '';
+        const e = p.effective ? new Date(p.effective).toLocaleString() : '';
         layer.bindPopup(`<strong>${t}</strong><br>${a}<br><em>${s}</em><br>${e}`);
       }
     }).addTo(map);
@@ -318,34 +307,30 @@
       });
     });
 
-    // --- Subscribe Gate logic ---
+    // --- Subscribe Gate logic (class-based, robust) ---
     (function() {
       const GATE_KEY = 'subGateDismissedAt';
       const SHOW_FOR_HOURS = 24; // set 0 to show every visit
       const gate = document.getElementById('subGate');
       const continueBtn = document.getElementById('continueBtn');
 
-      function lockUI(){ document.body.classList.add('gated'); ['header','main'].forEach(sel=>{const el=document.querySelector(sel); if(el) el.classList.add('gated');}); }
-      function unlockUI(){ document.body.classList.remove('gated'); ['header','main'].forEach(sel=>{const el=document.querySelector(sel); if(el) el.classList.remove('gated');}); }
-      function shouldShow(){ try{ const ts=+localStorage.getItem(GATE_KEY)||0; return ((Date.now()-ts)/36e5)>=SHOW_FOR_HOURS; }catch{ return true; } }
+      function lockUI(){ document.body.classList.add('gated'); ['header','main'].forEach(sel=>document.querySelector(sel)?.classList.add('gated')); }
+      function unlockUI(){ document.body.classList.remove('gated'); ['header','main'].forEach(sel=>document.querySelector(sel)?.classList.remove('gated')); }
+      function shouldShow(){
+        try { const ts = +localStorage.getItem(GATE_KEY) || 0; return ((Date.now()-ts)/36e5) >= SHOW_FOR_HOURS; }
+        catch { return true; }
+      }
+      function showGate(){ if(gate){ gate.classList.add('is-open'); lockUI(); } }
+      function hideGate(){ if(gate){ gate.classList.remove('is-open'); unlockUI(); try{ localStorage.setItem(GATE_KEY, String(Date.now())); }catch{} } }
 
-      window.addEventListener('DOMContentLoaded', () => {
-        if (gate && shouldShow()) { gate.hidden = false; lockUI(); }
-      });
-
-      continueBtn?.addEventListener('click', (e) => {
-        e.preventDefault();
-        try { localStorage.setItem(GATE_KEY, String(Date.now())); } catch {}
-        gate.hidden = true; unlockUI();
-      });
+      window.addEventListener('DOMContentLoaded', () => { if (shouldShow()) showGate(); });
+      continueBtn?.addEventListener('click', (e) => { e.preventDefault(); hideGate(); });
 
       // Optional: Exit-intent nudge (desktop)
       let exitShown=false;
       window.addEventListener('mouseout', (e) => {
-        if (exitShown || !gate) return;
-        if (e.clientY <= 0 || e.clientY < 8) {
-          if (gate.hidden && shouldShow()) { gate.hidden=false; lockUI(); exitShown=true; }
-        }
+        if (exitShown || gate.classList.contains('is-open')) return;
+        if (e.clientY <= 0 || e.clientY < 8) { if (shouldShow()) { showGate(); exitShown=true; } }
       });
     })();
   </script>
