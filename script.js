@@ -66,13 +66,13 @@ async function loadAlerts(params = {}) {
     alertLayer.addData(geo);
 
     const lastUpdated = document.getElementById("lastUpdated");
-if (lastUpdated) {
-  const now = new Date();
-  lastUpdated.textContent = `Last updated: ${now.toLocaleString(undefined, {
-    dateStyle: "short",
-    timeStyle: "short"
-  })}`;
-}
+    if (lastUpdated) {
+      const now = new Date();
+      lastUpdated.textContent = `Last updated: ${now.toLocaleString(undefined, {
+        dateStyle: "short",
+        timeStyle: "short"
+      })}`;
+    }
 
   } catch (e) {
     console.error(e);
@@ -82,6 +82,60 @@ if (lastUpdated) {
 }
 
 loadAlerts();
+
+/* ================================
+   CURRENT CONDITIONS (Open-Meteo)
+   ================================ */
+async function loadWeather(lat = 39.5, lon = -98.35) {
+  const el = document.getElementById("currentWeather");
+  if (!el) return;
+
+  try {
+    el.textContent = "Loading current weather…";
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch&timezone=auto`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    const cw = data.current_weather;
+
+    if (!cw) {
+      el.innerHTML = `<span class="muted">No current weather available for this location.</span>`;
+      return;
+    }
+
+    const dir = (d) => {
+      const a = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+      return a[Math.round((d % 360) / 22.5) % 16];
+    };
+
+    el.innerHTML = `
+      <div class="wx-card">
+        <div class="wx-title">Temperature</div>
+        <div class="wx-value">${Math.round(cw.temperature)}°F</div>
+      </div>
+      <div class="wx-card">
+        <div class="wx-title">Wind</div>
+        <div class="wx-value">${Math.round(cw.windspeed)} mph ${cw.winddirection != null ? dir(cw.winddirection) : ""}</div>
+      </div>
+      <div class="wx-card">
+        <div class="wx-title">Observed</div>
+        <div class="wx-value">${new Date(cw.time).toLocaleString()}</div>
+      </div>
+    `;
+  } catch (e) {
+    console.error("Open-Meteo error:", e);
+    el.innerHTML = `
+      <div class="muted">
+        ⚠️ Unable to load current conditions.
+        <button class="btn" id="retryWx" style="margin-left:8px;">Retry</button>
+      </div>`;
+    document.getElementById("retryWx")?.addEventListener("click", () => loadWeather(lat, lon));
+  }
+}
+
+// initial conditions (US center) until user selects a place
+loadWeather();
 
 // ZIP search
 document.getElementById("applyZip").addEventListener("click", async () => {
@@ -98,6 +152,7 @@ document.getElementById("applyZip").addEventListener("click", async () => {
       const { lat, lon } = data[0];
       map.setView([+lat, +lon], 7);
       loadAlerts({ point: { lat: +lat, lon: +lon } });
+      loadWeather(+lat, +lon); // ← added
     }
   } catch (e) {
     console.error(e);
@@ -114,6 +169,7 @@ document.getElementById("locate").addEventListener("click", () => {
     const { latitude: lat, longitude: lon } = pos.coords;
     map.setView([lat, lon], 7);
     loadAlerts({ point: { lat, lon } });
+    loadWeather(lat, lon); // ← added
   });
 });
 

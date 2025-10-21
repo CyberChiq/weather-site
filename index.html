@@ -78,6 +78,7 @@
     </div>
 
     <main class="grid">
+
       <!-- YouTube Stream -->
       <section class="card">
         <h2>
@@ -115,6 +116,14 @@
 
         <div class="attribution">Alerts: NWS API • Radar: RainViewer • Map: OpenStreetMap</div>
       </aside>
+
+      <!-- Current Conditions -->
+      <section class="card" id="current" style="grid-column: 1 / -1;">
+        <h2>Current Conditions</h2>
+        <div class="panel">
+         <div class="muted" id="currentWeather">Loading current weather…</div>
+        </div>
+      </section>
 
       <!-- Radar -->
       <section class="card" style="grid-column: 1 / -1">
