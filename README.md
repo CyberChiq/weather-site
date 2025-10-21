@@ -10,7 +10,7 @@ A minimal one-page site that embeds a YouTube channel that is live, an interacti
 6. Edit the header "Subscribe on YouTube" link or styles as you like.
 
 ### Notes
-- YouTube video ID is set to **L2epTWHZjFY** as an example (the link Tiffany shared).
+- YouTube video ID is set to **L2epTWHZjFY** as an example.
 - Geolocation works on `https://` or `http://localhost`. Browsers block it on plain `http` except localhost.
 - Keep the attributions (RainViewer, NWS, OSM).
 - For production, deploy to Netlify/Vercel/GitHub Pages.
@@ -29,7 +29,7 @@ A minimal one-page site that embeds a YouTube channel that is live, an interacti
 
 ## Customize
 - Colors are in CSS `:root` variables.
-- Replace the YouTube embed id and subscribe link with your friend's.
+- Replace the YouTube embed id and subscribe link.
 - The email form is a placeholder; paste in your provider's embed code.
 
 Enjoy!
